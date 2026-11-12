@@ -27,9 +27,18 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
 .btn{width:100%;padding:13px;border:0;border-radius:14px;background:var(--pink-d);color:#fff;font-family:system-ui,sans-serif;font-size:16px;cursor:pointer;margin-top:12px}
 .btn.ghost{background:transparent;color:var(--pink-d);border:1px solid var(--pink)}
 .btn:disabled{opacity:.45;cursor:default}
-.timer{display:flex;align-items:center;justify-content:space-between}
-.time{font-size:34px;font-variant-numeric:tabular-nums}
-.tbtn{padding:8px 16px;border-radius:999px;border:1px solid var(--pink);background:transparent;color:var(--pink-d);font-family:system-ui,sans-serif;cursor:pointer}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.tmini{margin-top:10px;background:none;border:0;color:var(--soft);font-family:system-ui,sans-serif;font-size:13px;opacity:.7;cursor:pointer;padding:6px 4px;white-space:nowrap}
+.tmini:hover{opacity:1}
+.bar{height:2px;background:transparent;border-radius:2px;margin:-8px 0 18px;overflow:hidden}
+#bar{height:100%;width:0;background:var(--pink);opacity:.6;transition:width 1s linear}
+.hint{font-family:system-ui,sans-serif;font-size:13px;color:var(--soft);margin:0 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{border:1px dashed var(--pink);background:transparent;color:var(--pink-d);border-radius:999px;padding:7px 12px;font-family:system-ui,sans-serif;font-size:13px;cursor:pointer}
+.row.small .seg{font-size:13px;padding:8px 4px}
+.item.st{border-left-color:var(--pink-d)}
+.name{margin-top:6px;background:transparent;border:1px solid var(--pink);color:var(--pink-d);border-radius:999px;padding:7px 16px;font-family:system-ui,sans-serif;font-size:14px;cursor:pointer}
+.named{color:var(--pink-d)!important;font-style:italic;font-family:Georgia,serif!important;font-size:16px!important}
 .item{border-left:4px solid var(--pink);padding:4px 0 4px 12px;margin:14px 0;position:relative}
 .item.no{border-left-color:var(--soft)}
 .item b{font-weight:normal;font-size:17px}
@@ -45,15 +54,13 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
 </head>
 <body>
 <main>
-  <h1>Worry time</h1>
-  <p class="sub" id="date"></p>
+  <div class="head">
+    <div><h1>Worry time</h1><p class="sub" id="date"></p></div>
+    <button class="tmini" id="tbtn" aria-label="10 minute timer">10 min</button>
+  </div>
+  <div class="bar" id="barwrap"><div id="bar"></div></div>
 
   <div id="open">
-    <div class="card timer">
-      <div><div class="lbl">10 minutes, then you’re done</div><div class="time" id="time">10:00</div></div>
-      <button class="tbtn" id="tbtn">Start</button>
-    </div>
-
     <div class="card">
       <label for="w">What’s worrying me?</label>
       <textarea id="w" placeholder="One sentence, as concrete as you can"></textarea>
@@ -64,6 +71,20 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
       <label for="s" id="slbl">First small step (what, by when)</label>
       <textarea id="s" placeholder=""></textarea>
       <button class="btn" id="add">Write it down</button>
+    </div>
+
+    <div class="card" id="standing">
+      <div class="lbl">The ones that don’t need solving</div>
+      <p class="hint">Some worries and feelings have no fix. They just need to be named, so they stop circling. Tap “Name it” once a day.</p>
+      <div id="slist"></div>
+      <div id="chips" class="chips"></div>
+      <div class="row small">
+        <button class="seg" data-type="fear" aria-pressed="true">Fear</button>
+        <button class="seg" data-type="sad" aria-pressed="false">Sadness</button>
+        <button class="seg" data-type="heavy" aria-pressed="false">Heavy feeling</button>
+      </div>
+      <textarea id="sin" style="min-height:48px" placeholder="Something of your own…"></textarea>
+      <button class="btn ghost" id="sadd">Add to this list</button>
     </div>
 
     <div class="card">
@@ -106,12 +127,15 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
   $('no').onclick=function(){setMode(false)};
   setMode(true);
   function render(){
+    renderStanding();
     var html=state.items.map(function(it,i){
       return '<div class="item'+(it.act?'':' no')+'"><button class="x" data-i="'+i+'" aria-label="Remove">×</button><b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p></div>';
     }).join('');
     $('list').innerHTML=html||'<p class="empty">Nothing yet. Take your time.</p>';
-    $('close').disabled=!state.items.length;
-    $('putaway').innerHTML=html.replace(/<button class="x".*?<\/button>/g,'')||'<p class="empty">Nothing was written today.</p>';
+    $('close').disabled=!(state.items.length||standing.some(function(x){return x.last===key}));
+    var named=standing.filter(function(x){return x.last===key}).map(function(x){return '<div class="item st"><b>'+esc(x.t)+'</b><p>'+LINES[x.type]+'</p></div>'}).join('');
+    var pa=html.replace(/<button class="x".*?<\/button>/g,'')+named;
+    $('putaway').innerHTML=pa||'<p class="empty">Nothing was written today.</p>';
     $('open').classList.toggle('hidden',state.closed);
     $('done').classList.toggle('hidden',!state.closed);
   }
@@ -126,14 +150,49 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
   };
   $('close').onclick=function(){state.closed=true;stop();save();render();window.scrollTo(0,0);};
   $('reopen').onclick=function(){state.closed=false;save();render();};
-  var left=600,iv=null;
-  function show(){var m=Math.floor(left/60),s=left%60;$('time').textContent=m+':'+(s<10?'0':'')+s;}
-  function stop(){clearInterval(iv);iv=null;$('tbtn').textContent='Start';}
+  var skey='worrytime:standing',standing=[],stype='fear';
+  try{var sr=localStorage.getItem(skey);if(sr){var sp=JSON.parse(sr);if(sp&&sp.length)standing=sp;}}catch(e){}
+  function ssave(){try{localStorage.setItem(skey,JSON.stringify(standing));}catch(e){}}
+  var LINES={fear:'This is fear, not reality. Right now, nothing is happening.',sad:'This is grief. It’s love with nowhere to go, and it’s allowed to be here.',heavy:'This is a heavy feeling, not a verdict. It can be here without deciding anything.'};
+  var NAMES={fear:'Fear',sad:'Sadness',heavy:'Heavy feeling'};
+  var SUG=[{t:'Losing my mum',type:'fear'},{t:'Missing my gran',type:'sad'},{t:'My life going downhill',type:'heavy'}];
+  function renderStanding(){
+    $('slist').innerHTML=standing.map(function(it,i){
+      var done=it.last===key;
+      return '<div class="item st"><button class="x" data-s="'+i+'" aria-label="Remove">×</button><b>'+esc(it.t)+'</b><p>'+NAMES[it.type]+'</p>'+(done?'<p class="named">'+LINES[it.type]+'</p>':'<button class="name" data-n="'+i+'">Name it</button>')+'</div>';
+    }).join('');
+    var have=standing.map(function(x){return x.t});
+    $('chips').innerHTML=SUG.filter(function(g){return have.indexOf(g.t)<0}).map(function(g,i){
+      return '<button class="chip" data-t="'+esc(g.t)+'" data-ty="'+g.type+'">+ '+esc(g.t)+'</button>';
+    }).join('');
+  }
+  $('standing').onclick=function(e){
+    var el=e.target,g=function(a){return el.getAttribute&&el.getAttribute(a)};
+    if(g('data-n')!==null){standing[+g('data-n')].last=key;ssave();render();}
+    else if(g('data-s')!==null){standing.splice(+g('data-s'),1);ssave();render();}
+    else if(g('data-t')!==null){standing.push({t:g('data-t'),type:g('data-ty'),last:''});ssave();render();}
+    else if(g('data-type')!==null){
+      stype=g('data-type');
+      var bs=document.querySelectorAll('#standing .seg');
+      for(var k=0;k<bs.length;k++)bs[k].setAttribute('aria-pressed',bs[k].getAttribute('data-type')===stype);
+    }
+  };
+  $('sadd').onclick=function(){
+    var t=$('sin').value.trim();if(!t){$('sin').focus();return;}
+    standing.push({t:t,type:stype,last:''});$('sin').value='';ssave();render();
+  };
+  var TOTAL=600,left=TOTAL,iv=null;
+  function show(){
+    var mins=Math.ceil(left/60);
+    $('bar').style.width=((TOTAL-left)/TOTAL*100)+'%';
+    $('tbtn').textContent=iv?mins+' min left':(left<=0?'time’s gently up':(left<TOTAL?'paused · '+mins+' min':'10 min'));
+  }
+  function stop(){clearInterval(iv);iv=null;show();}
   $('tbtn').onclick=function(){
     if(iv){stop();return;}
-    if(left<=0)left=600;
-    $('tbtn').textContent='Pause';
-    iv=setInterval(function(){left--;show();if(left<=0){stop();$('time').textContent='Time’s up';}},1000);
+    if(left<=0){left=TOTAL;}
+    iv=setInterval(function(){left--;if(left<=0){left=0;stop();}else show();},1000);
+    show();
   };
   show();render();
 })();
