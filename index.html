@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Worry time</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#f6ebe9;--card:#fffaf9;--ink:#4a3236;--soft:#8c6a70;--pink:#c99aa0;--pink-d:#a9737b;--line:#e6cfd0;--ok:#8fa58f;
+color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#2b1f22;--card:#38282c;--ink:#f3e3e3;--soft:#c9a5aa;--pink:#b98189;--pink-d:#d9a3aa;--line:#53393e;--ok:#9db89d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#2b1f22;--card:#38282c;--ink:#f3e3e3;--soft:#c9a5aa;--pink:#b98189;--pink-d:#d9a3aa;--line:#53393e;--ok:#9db89d;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif;line-height:1.5;min-height:100vh}
+main{max-width:560px;margin:0 auto;padding:24px 18px 48px}
+h1{font-weight:normal;font-size:28px;margin:4px 0 2px}
+.sub{color:var(--soft);font-size:14px;margin:0 0 20px;font-family:system-ui,sans-serif}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px}
+label,.lbl{display:block;font-family:system-ui,sans-serif;font-size:13px;color:var(--soft);margin:0 0 6px;letter-spacing:.02em}
+textarea{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;resize:vertical;min-height:64px}
+textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
+.row{display:flex;gap:8px;margin:12px 0}
+.seg{flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-family:system-ui,sans-serif;font-size:14px;cursor:pointer}
+.seg[aria-pressed="true"]{background:var(--pink);border-color:var(--pink);color:#fff}
+.btn{width:100%;padding:13px;border:0;border-radius:14px;background:var(--pink-d);color:#fff;font-family:system-ui,sans-serif;font-size:16px;cursor:pointer;margin-top:12px}
+.btn.ghost{background:transparent;color:var(--pink-d);border:1px solid var(--pink)}
+.btn:disabled{opacity:.45;cursor:default}
+.timer{display:flex;align-items:center;justify-content:space-between}
+.time{font-size:34px;font-variant-numeric:tabular-nums}
+.tbtn{padding:8px 16px;border-radius:999px;border:1px solid var(--pink);background:transparent;color:var(--pink-d);font-family:system-ui,sans-serif;cursor:pointer}
+.item{border-left:4px solid var(--pink);padding:4px 0 4px 12px;margin:14px 0;position:relative}
+.item.no{border-left-color:var(--soft)}
+.item b{font-weight:normal;font-size:17px}
+.item p{margin:4px 0 0;font-family:system-ui,sans-serif;font-size:14px;color:var(--soft)}
+.item .x{position:absolute;right:0;top:0;background:none;border:0;color:var(--soft);font-size:20px;cursor:pointer}
+.closing{text-align:center;padding:26px 18px}
+.closing h2{font-weight:normal;font-size:24px;margin:0 0 12px}
+.closing p{margin:8px 0;font-size:18px}
+.mantra{color:var(--pink-d);font-style:italic}
+.empty{color:var(--soft);font-family:system-ui,sans-serif;font-size:14px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Worry time</h1>
+  <p class="sub" id="date"></p>
+
+  <div id="open">
+    <div class="card timer">
+      <div><div class="lbl">10 minutes, then you’re done</div><div class="time" id="time">10:00</div></div>
+      <button class="tbtn" id="tbtn">Start</button>
+    </div>
+
+    <div class="card">
+      <label for="w">What’s worrying me?</label>
+      <textarea id="w" placeholder="One sentence, as concrete as you can"></textarea>
+      <div class="row">
+        <button class="seg" id="yes" aria-pressed="true">I can do something</button>
+        <button class="seg" id="no" aria-pressed="false">Out of my hands</button>
+      </div>
+      <label for="s" id="slbl">First small step (what, by when)</label>
+      <textarea id="s" placeholder=""></textarea>
+      <button class="btn" id="add">Write it down</button>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Today’s worries</div>
+      <div id="list"></div>
+      <button class="btn" id="close" disabled>Close worry time</button>
+    </div>
+  </div>
+
+  <div id="done" class="hidden">
+    <div class="card closing">
+      <h2>It’s written down.</h2>
+      <p>I’ve given these worries my attention, and each one has a plan or has been set aside.</p>
+      <p class="mantra">This is a fear, not reality. Nothing is happening right now.</p>
+      <p>I’m allowed to stop worrying for today.</p>
+      <p class="empty">If a worry comes back tonight: it’s already on paper. Same time tomorrow.</p>
+    </div>
+    <div class="card"><div class="lbl">Put away for today</div><div id="putaway"></div></div>
+    <button class="btn ghost" id="reopen">Reopen today’s session</button>
+  </div>
+</main>
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var d=new Date();
+  var key='worrytime:'+d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+  $('date').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+  var state={items:[],closed:false};
+  try{var raw=localStorage.getItem(key);if(raw){var p=JSON.parse(raw);if(p&&p.items)state=p;}}catch(e){}
+  function save(){try{localStorage.setItem(key,JSON.stringify(state));}catch(e){}}
+  var canAct=true;
+  function esc(t){var s=document.createElement('span');s.textContent=t;return s.innerHTML}
+  function setMode(a){
+    canAct=a;
+    $('yes').setAttribute('aria-pressed',a);$('no').setAttribute('aria-pressed',!a);
+    $('slbl').textContent=a?'First small step (what, by when)':'If the worst happens, I will…';
+    $('s').placeholder=a?'e.g. Tomorrow at 10, message my boss about what’s realistic':'e.g. I’ll call a friend, and I’ll take it one day at a time';
+  }
+  $('yes').onclick=function(){setMode(true)};
+  $('no').onclick=function(){setMode(false)};
+  setMode(true);
+  function render(){
+    var html=state.items.map(function(it,i){
+      return '<div class="item'+(it.act?'':' no')+'"><button class="x" data-i="'+i+'" aria-label="Remove">×</button><b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p></div>';
+    }).join('');
+    $('list').innerHTML=html||'<p class="empty">Nothing yet. Take your time.</p>';
+    $('close').disabled=!state.items.length;
+    $('putaway').innerHTML=html.replace(/<button class="x".*?<\/button>/g,'')||'<p class="empty">Nothing was written today.</p>';
+    $('open').classList.toggle('hidden',state.closed);
+    $('done').classList.toggle('hidden',!state.closed);
+  }
+  $('list').onclick=function(e){
+    var i=e.target.getAttribute&&e.target.getAttribute('data-i');
+    if(i!==null&&i!==undefined){state.items.splice(+i,1);save();render();}
+  };
+  $('add').onclick=function(){
+    var w=$('w').value.trim();if(!w){$('w').focus();return;}
+    state.items.push({w:w,s:$('s').value.trim(),act:canAct});
+    $('w').value='';$('s').value='';save();render();$('w').focus();
+  };
+  $('close').onclick=function(){state.closed=true;stop();save();render();window.scrollTo(0,0);};
+  $('reopen').onclick=function(){state.closed=false;save();render();};
+  var left=600,iv=null;
+  function show(){var m=Math.floor(left/60),s=left%60;$('time').textContent=m+':'+(s<10?'0':'')+s;}
+  function stop(){clearInterval(iv);iv=null;$('tbtn').textContent='Start';}
+  $('tbtn').onclick=function(){
+    if(iv){stop();return;}
+    if(left<=0)left=600;
+    $('tbtn').textContent='Pause';
+    iv=setInterval(function(){left--;show();if(left<=0){stop();$('time').textContent='Time’s up';}},1000);
+  };
+  show();render();
+})();
+</script>
+</body>
+</html>
