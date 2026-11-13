@@ -69,7 +69,10 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
 .closing{text-align:center;padding:26px 18px}
 .closing h2{font-weight:normal;font-size:24px;margin:0 0 12px}
 .closing p{margin:8px 0;font-size:18px}
-.mantra{color:var(--pink-d);font-style:italic}
+#done,#done *{font-family:Georgia,"Times New Roman",serif!important;font-style:normal!important}
+#done .say,#done .empty,#done .lbl{font-size:15px}
+#done .item p{font-size:15px}
+.allowed{color:var(--ink);background:color-mix(in srgb,var(--pink) 38%,transparent);padding:2px 8px;border-radius:6px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .empty{color:var(--soft);font-family:system-ui,sans-serif;font-size:14px}
 .hidden{display:none}
 </style>
@@ -127,8 +130,8 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
       <p class="say">I’ll hold them for you tonight.</p>
       <h2>It’s written down.</h2>
       <p>I’ve given these worries my attention, and each one has a plan or has been set aside.</p>
-      <p class="mantra">This is a fear, not reality. Nothing is happening right now.</p>
-      <p>I’m allowed to stop worrying for today.</p>
+      <p>This is a fear, not reality. Nothing is happening right now.</p>
+      <p><span class="allowed">I’m allowed to stop worrying for today.</span></p>
       <p class="empty">If a worry comes back tonight: it’s already on paper. Same time tomorrow.</p>
     </div>
     <div class="card"><div class="lbl">Put away for today</div><div id="putaway"></div></div>
