@@ -8,9 +8,10 @@ Write down what's worrying you, decide whether you can act on it (first small st
 - A little worry doll you tell your worries to: it listens while you write, and sleeps on the closing screen
 - 10-minute optional timer (small and discreet)
 - Two paths per worry: act vs. out of my hands
+- Edit today's worries in place (✎), or remove them (×)
 - Closing screen to "put away" the day's worries
 - A standing list for worries and feelings that have no fix (fear, sadness, heavy feelings), named once a day
-- The safe: past worries are kept so you can look back and mark which ones worked out (the standing list is never included)
+- The safe: past worries are kept so you can look back and mark which ones worked out, or delete ones you no longer want kept (the standing list is never included)
 - Saved per day in your browser's `localStorage` (nothing leaves your device)
 - Dusty pink theme with automatic dark mode
 - Single file, no dependencies, works on mobile

@@ -54,7 +54,14 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
 @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.015)}}
 @keyframes nod{0%,100%{transform:rotate(0)}30%{transform:rotate(-4deg) translateY(2px)}65%{transform:rotate(3deg) translateY(1px)}}
 @media (prefers-reduced-motion:reduce){.doll,.doll.nod svg{animation:none}}
-.item{border-left:4px solid var(--pink);padding:4px 0 4px 12px;margin:14px 0;position:relative}
+.item{border-left:4px solid var(--pink);padding:4px 40px 4px 12px;margin:14px 0;position:relative}
+.item.editing{padding-right:0;border-left-color:var(--pink-d)}
+.item.editing .row{margin:8px 0}
+.item.editing textarea{margin-bottom:4px}
+.item .ed{position:absolute;right:24px;top:2px;background:none;border:0;color:var(--soft);font-size:16px;line-height:1.3;cursor:pointer;padding:2px 6px;opacity:.8}
+.item .ed:hover{opacity:1}
+.confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.okbtn.danger{border-color:var(--pink-d);color:var(--pink-d)}
 .item.no{border-left-color:var(--soft)}
 .item b{font-weight:normal;font-size:17px}
 .item p{margin:4px 0 0;font-family:system-ui,sans-serif;font-size:14px;color:var(--soft)}
@@ -158,30 +165,61 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
   $('yes').onclick=function(){setMode(true)};
   $('no').onclick=function(){setMode(false)};
   setMode(true);
+  var ed=-1,edAct=true,edDraft=null;
+  function itemHTML(it,i,ctl){
+    return '<div class="item'+(it.act?'':' no')+'">'+(ctl?'<button class="ed" data-e="'+i+'" aria-label="Edit">✎</button><button class="x" data-i="'+i+'" aria-label="Remove">×</button>':'')+'<b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p></div>';
+  }
+  function editHTML(it){
+    var dr=edDraft||{w:it.w,s:it.s||''};
+    return '<div class="item editing"><label for="ew">What’s worrying me?</label><textarea id="ew">'+esc(dr.w)+'</textarea>'
+    +'<div class="row"><button class="seg" data-m="1" aria-pressed="'+edAct+'">I can do something</button><button class="seg" data-m="0" aria-pressed="'+!edAct+'">Out of my hands</button></div>'
+    +'<label for="es" id="elbl">'+(edAct?'First small step (what, by when)':'If the worst happens, I will…')+'</label><textarea id="es">'+esc(dr.s)+'</textarea>'
+    +'<div class="row"><button class="seg" data-save="1">Save</button><button class="seg" data-cancel="1">Cancel</button></div></div>';
+  }
   function render(){
+    if(ed>=0&&$('ew'))edDraft={w:$('ew').value,s:$('es').value};
     renderStanding();
-    var html=state.items.map(function(it,i){
-      return '<div class="item'+(it.act?'':' no')+'"><button class="x" data-i="'+i+'" aria-label="Remove">×</button><b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p></div>';
-    }).join('');
+    var html=state.items.map(function(it,i){return i===ed?editHTML(it):itemHTML(it,i,true)}).join('');
     $('list').innerHTML=html||'<p class="empty">Nothing yet. Take your time.</p>';
     $('close').disabled=!(state.items.length||standing.some(function(x){return x.last===key}));
     var named=standing.filter(function(x){return x.last===key}).map(function(x){return '<div class="item st"><b>'+esc(x.t)+'</b><p>'+LINES[x.type]+'</p></div>'}).join('');
-    var pa=html.replace(/<button class="x".*?<\/button>/g,'')+named;
+    var pa=state.items.map(function(it,i){return itemHTML(it,i,false)}).join('')+named;
     $('putaway').innerHTML=pa||'<p class="empty">Nothing was written today.</p>';
     $('open').classList.toggle('hidden',state.closed||inSafe);
     $('done').classList.toggle('hidden',!state.closed||inSafe);
     $('safe').classList.toggle('hidden',!inSafe);
   }
+  function endEdit(){ed=-1;edDraft=null;}
   $('list').onclick=function(e){
-    var i=e.target.getAttribute&&e.target.getAttribute('data-i');
-    if(i!==null&&i!==undefined){state.items.splice(+i,1);save();render();}
+    var el=e.target,g=function(n){return el.getAttribute&&el.getAttribute(n)};
+    var i=g('data-i'),en=g('data-e');
+    if(i!==null&&i!==undefined){
+      i=+i;state.items.splice(i,1);
+      if(i===ed)endEdit();else if(i<ed)ed--;
+      save();render();
+    }else if(en!==null&&en!==undefined){
+      if(ed>=0&&$('ew'))edDraft=null;
+      ed=+en;edAct=!!state.items[ed].act;edDraft=null;render();
+      var t=$('ew');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}
+    }else if(g('data-m')!==null){
+      edAct=g('data-m')==='1';
+      var bs=el.parentNode.querySelectorAll('.seg');
+      for(var k=0;k<bs.length;k++)bs[k].setAttribute('aria-pressed',bs[k].getAttribute('data-m')===g('data-m'));
+      $('elbl').textContent=edAct?'First small step (what, by when)':'If the worst happens, I will…';
+    }else if(g('data-save')!==null){
+      var w=$('ew').value.trim();if(!w){$('ew').focus();return;}
+      var it=state.items[ed];it.w=w;it.s=$('es').value.trim();it.act=edAct;
+      endEdit();save();render();say('Changed. Still held.');
+    }else if(g('data-cancel')!==null){
+      endEdit();render();
+    }
   };
   $('add').onclick=function(){
     var w=$('w').value.trim();if(!w){$('w').focus();return;}
     state.items.push({w:w,s:$('s').value.trim(),act:canAct});
     $('w').value='';$('s').value='';save();render();$('w').focus();say(ADD[ai++%ADD.length]);
   };
-  $('close').onclick=function(){state.closed=true;stop();save();render();window.scrollTo(0,0);};
+  $('close').onclick=function(){endEdit();state.closed=true;stop();save();render();window.scrollTo(0,0);};
   $('reopen').onclick=function(){state.closed=false;save();render();say('Welcome back.');};
   var skey='worrytime:standing',standing=[],stype='fear';
   try{var sr=localStorage.getItem(skey);if(sr){var sp=JSON.parse(sr);if(sp&&sp.length)standing=sp;}}catch(e){}
@@ -214,7 +252,7 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     var t=$('sin').value.trim();if(!t){$('sin').focus();return;}
     standing.push({t:t,type:stype,last:''});$('sin').value='';ssave();render();
   };
-  var inSafe=false;
+  var inSafe=false,pend=null;
   function loadDays(){
     var out=[];
     try{
@@ -236,7 +274,9 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     var html=days.map(function(day){
       var items=day.v.items.map(function(it,i){
         total++;if(it.ok)fine++;
-        return '<div class="item'+(it.ok?' fine':(it.act?'':' no'))+'"><b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p><button class="okbtn" aria-pressed="'+(!!it.ok)+'" data-ok="'+day.k+'|'+i+'">'+(it.ok?'It worked out ✓':'Did it work out?')+'</button></div>';
+        var id=day.k+'|'+i,asking=pend===id;
+        return '<div class="item'+(it.ok?' fine':(it.act?'':' no'))+'">'+(asking?'':'<button class="x" data-del="'+id+'" aria-label="Delete">×</button>')+'<b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p>'
+        +(asking?'<p class="confirm">Delete this one for good? <button class="okbtn danger" data-delyes="'+id+'">Delete</button><button class="okbtn" data-delno="1">Keep</button></p>':'<button class="okbtn" aria-pressed="'+(!!it.ok)+'" data-ok="'+id+'">'+(it.ok?'It worked out ✓':'Did it work out?')+'</button>')+'</div>';
       }).join('');
       return '<div class="day">'+esc(day.d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div><div class="card">'+items+'</div>';
     }).join('');
@@ -244,8 +284,23 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     $('tally').textContent=total?('You’ve put away '+total+' worr'+(total===1?'y':'ies')+(fine?', and '+fine+' turned out okay.':'.')):'';
   }
   $('days').onclick=function(e){
-    var a=e.target.getAttribute&&e.target.getAttribute('data-ok');
-    if(!a)return;
+    var el=e.target,g=function(n){return el.getAttribute&&el.getAttribute(n)};
+    var a=g('data-ok'),dl=g('data-del'),dy=g('data-delyes');
+    if(dl){pend=dl;renderSafe();return;}
+    if(dy){
+      var q=dy.split('|'),dk=q[0],di=+q[1];
+      try{
+        if(dk===key){state.items.splice(di,1);save();}
+        else{
+          var dv=JSON.parse(localStorage.getItem(dk));
+          dv.items.splice(di,1);
+          if(dv.items.length)localStorage.setItem(dk,JSON.stringify(dv));else localStorage.removeItem(dk);
+        }
+      }catch(err){}
+      pend=null;renderSafe();render();return;
+    }
+    if(!a){if(pend){pend=null;renderSafe();}return;}
+    pend=null;
     var parts=a.split('|'),k=parts[0],i=+parts[1];
     try{
       var v=JSON.parse(localStorage.getItem(k));
@@ -255,9 +310,9 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     }catch(err){}
     renderSafe();
   };
-  function openSafe(){inSafe=true;renderSafe();render();window.scrollTo(0,0);}
+  function openSafe(){inSafe=true;pend=null;renderSafe();render();window.scrollTo(0,0);}
   $('tosafe').onclick=openSafe;$('tosafe2').onclick=openSafe;
-  $('back').onclick=function(){inSafe=false;render();window.scrollTo(0,0);};
+  $('back').onclick=function(){inSafe=false;pend=null;render();window.scrollTo(0,0);};
   function dollSVG(id){
     var body='M22 50 Q19 98 26 104 Q40 109 54 104 Q61 98 58 50 Z';
     return '<svg viewBox="0 0 80 110" role="img" aria-label="A little worry doll">'
