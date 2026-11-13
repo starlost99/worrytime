@@ -39,6 +39,21 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
 .item.st{border-left-color:var(--pink-d)}
 .name{margin-top:6px;background:transparent;border:1px solid var(--pink);color:var(--pink-d);border-radius:999px;padding:7px 16px;font-family:system-ui,sans-serif;font-size:14px;cursor:pointer}
 .named{color:var(--pink-d)!important;font-style:italic;font-family:Georgia,serif!important;font-size:16px!important}
+.day{font-family:system-ui,sans-serif;font-size:13px;color:var(--soft);margin:20px 4px 6px;letter-spacing:.02em}
+.tally{color:var(--pink-d);font-size:18px;margin:10px 0 0}
+.item.fine{border-left-color:var(--ok)}
+.okbtn{margin-top:6px;background:transparent;border:1px solid var(--line);color:var(--soft);border-radius:999px;padding:6px 14px;font-family:system-ui,sans-serif;font-size:13px;cursor:pointer}
+.okbtn[aria-pressed="true"]{border-color:var(--ok);color:var(--ok)}
+.dollwrap{text-align:center;margin:2px 0 16px}
+.doll{display:inline-block;transform-origin:50% 100%;animation:breathe 5s ease-in-out infinite}
+.doll svg{width:78px;height:auto;display:block;transform-origin:50% 100%}
+.doll.nod svg{animation:nod .9s ease-in-out}
+.doll .ec{display:none}.doll.sleeping .ec{display:inline}.doll.sleeping .eo{display:none}
+.doll.sleeping{animation-duration:7s}
+.say{font-style:italic;color:var(--soft);font-size:15px;min-height:1.5em;margin:6px 0 0;transition:opacity .4s}
+@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.015)}}
+@keyframes nod{0%,100%{transform:rotate(0)}30%{transform:rotate(-4deg) translateY(2px)}65%{transform:rotate(3deg) translateY(1px)}}
+@media (prefers-reduced-motion:reduce){.doll,.doll.nod svg{animation:none}}
 .item{border-left:4px solid var(--pink);padding:4px 0 4px 12px;margin:14px 0;position:relative}
 .item.no{border-left-color:var(--soft)}
 .item b{font-weight:normal;font-size:17px}
@@ -61,6 +76,10 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
   <div class="bar" id="barwrap"><div id="bar"></div></div>
 
   <div id="open">
+    <div class="dollwrap">
+      <div class="doll" id="doll"></div>
+      <p class="say" id="say">Tell me what’s on your mind.</p>
+    </div>
     <div class="card">
       <label for="w">What’s worrying me?</label>
       <textarea id="w" placeholder="One sentence, as concrete as you can"></textarea>
@@ -92,10 +111,13 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
       <div id="list"></div>
       <button class="btn" id="close" disabled>Close worry time</button>
     </div>
+    <button class="btn ghost" id="tosafe">Open the safe</button>
   </div>
 
   <div id="done" class="hidden">
     <div class="card closing">
+      <div class="doll sleeping" id="doll2"></div>
+      <p class="say">I’ll hold them for you tonight.</p>
       <h2>It’s written down.</h2>
       <p>I’ve given these worries my attention, and each one has a plan or has been set aside.</p>
       <p class="mantra">This is a fear, not reality. Nothing is happening right now.</p>
@@ -104,6 +126,16 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     </div>
     <div class="card"><div class="lbl">Put away for today</div><div id="putaway"></div></div>
     <button class="btn ghost" id="reopen">Reopen today’s session</button>
+    <button class="btn ghost" id="tosafe2">Open the safe</button>
+  </div>
+  <div id="safe" class="hidden">
+    <div class="card">
+      <h2 style="font-weight:normal;font-size:22px;margin:0 0 6px">The safe</h2>
+      <p class="hint">Worries you’ve written down and put away. The ones that don’t need solving stay out of here on purpose.</p>
+      <p class="tally" id="tally"></p>
+    </div>
+    <div id="days"></div>
+    <button class="btn ghost" id="back">Back</button>
   </div>
 </main>
 <script>
@@ -136,8 +168,9 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     var named=standing.filter(function(x){return x.last===key}).map(function(x){return '<div class="item st"><b>'+esc(x.t)+'</b><p>'+LINES[x.type]+'</p></div>'}).join('');
     var pa=html.replace(/<button class="x".*?<\/button>/g,'')+named;
     $('putaway').innerHTML=pa||'<p class="empty">Nothing was written today.</p>';
-    $('open').classList.toggle('hidden',state.closed);
-    $('done').classList.toggle('hidden',!state.closed);
+    $('open').classList.toggle('hidden',state.closed||inSafe);
+    $('done').classList.toggle('hidden',!state.closed||inSafe);
+    $('safe').classList.toggle('hidden',!inSafe);
   }
   $('list').onclick=function(e){
     var i=e.target.getAttribute&&e.target.getAttribute('data-i');
@@ -146,10 +179,10 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
   $('add').onclick=function(){
     var w=$('w').value.trim();if(!w){$('w').focus();return;}
     state.items.push({w:w,s:$('s').value.trim(),act:canAct});
-    $('w').value='';$('s').value='';save();render();$('w').focus();
+    $('w').value='';$('s').value='';save();render();$('w').focus();say(ADD[ai++%ADD.length]);
   };
   $('close').onclick=function(){state.closed=true;stop();save();render();window.scrollTo(0,0);};
-  $('reopen').onclick=function(){state.closed=false;save();render();};
+  $('reopen').onclick=function(){state.closed=false;save();render();say('Welcome back.');};
   var skey='worrytime:standing',standing=[],stype='fear';
   try{var sr=localStorage.getItem(skey);if(sr){var sp=JSON.parse(sr);if(sp&&sp.length)standing=sp;}}catch(e){}
   function ssave(){try{localStorage.setItem(skey,JSON.stringify(standing));}catch(e){}}
@@ -168,7 +201,7 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
   }
   $('standing').onclick=function(e){
     var el=e.target,g=function(a){return el.getAttribute&&el.getAttribute(a)};
-    if(g('data-n')!==null){standing[+g('data-n')].last=key;ssave();render();}
+    if(g('data-n')!==null){standing[+g('data-n')].last=key;ssave();render();say('I know this one. It’s allowed to be here.');}
     else if(g('data-s')!==null){standing.splice(+g('data-s'),1);ssave();render();}
     else if(g('data-t')!==null){standing.push({t:g('data-t'),type:g('data-ty'),last:''});ssave();render();}
     else if(g('data-type')!==null){
@@ -181,6 +214,76 @@ textarea:focus{outline:2px solid var(--pink);outline-offset:1px}
     var t=$('sin').value.trim();if(!t){$('sin').focus();return;}
     standing.push({t:t,type:stype,last:''});$('sin').value='';ssave();render();
   };
+  var inSafe=false;
+  function loadDays(){
+    var out=[];
+    try{
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(k.indexOf('worrytime:')!==0||k==='worrytime:standing')continue;
+        var v=JSON.parse(localStorage.getItem(k));
+        if(!v||!v.items||!v.items.length)continue;
+        if(k===key&&!v.closed)continue;
+        var p=k.slice(10).split('-').map(Number);
+        out.push({k:k,v:v,d:new Date(p[0],p[1]-1,p[2])});
+      }
+    }catch(e){}
+    out.sort(function(a,b){return b.d-a.d});
+    return out;
+  }
+  function renderSafe(){
+    var days=loadDays(),total=0,fine=0;
+    var html=days.map(function(day){
+      var items=day.v.items.map(function(it,i){
+        total++;if(it.ok)fine++;
+        return '<div class="item'+(it.ok?' fine':(it.act?'':' no'))+'"><b>'+esc(it.w)+'</b><p>'+(it.act?'Step: ':'If it happens: ')+esc(it.s||'—')+'</p><button class="okbtn" aria-pressed="'+(!!it.ok)+'" data-ok="'+day.k+'|'+i+'">'+(it.ok?'It worked out ✓':'Did it work out?')+'</button></div>';
+      }).join('');
+      return '<div class="day">'+esc(day.d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div><div class="card">'+items+'</div>';
+    }).join('');
+    $('days').innerHTML=html||'<div class="card"><p class="empty">Nothing here yet. When you close a worry-time session, the worries you wrote are kept here.</p></div>';
+    $('tally').textContent=total?('You’ve put away '+total+' worr'+(total===1?'y':'ies')+(fine?', and '+fine+' turned out okay.':'.')):'';
+  }
+  $('days').onclick=function(e){
+    var a=e.target.getAttribute&&e.target.getAttribute('data-ok');
+    if(!a)return;
+    var parts=a.split('|'),k=parts[0],i=+parts[1];
+    try{
+      var v=JSON.parse(localStorage.getItem(k));
+      v.items[i].ok=!v.items[i].ok;
+      localStorage.setItem(k,JSON.stringify(v));
+      if(k===key&&state.items[i])state.items[i].ok=v.items[i].ok;
+    }catch(err){}
+    renderSafe();
+  };
+  function openSafe(){inSafe=true;renderSafe();render();window.scrollTo(0,0);}
+  $('tosafe').onclick=openSafe;$('tosafe2').onclick=openSafe;
+  $('back').onclick=function(){inSafe=false;render();window.scrollTo(0,0);};
+  function dollSVG(id){
+    var body='M22 50 Q19 98 26 104 Q40 109 54 104 Q61 98 58 50 Z';
+    return '<svg viewBox="0 0 80 110" role="img" aria-label="A little worry doll">'
+    +'<defs><clipPath id="c'+id+'"><path d="'+body+'"/></clipPath></defs>'
+    +'<path d="'+body+'" fill="#c99aa0"/>'
+    +'<g clip-path="url(#c'+id+')"><rect x="15" y="62" width="50" height="5" fill="#fffaf9"/><rect x="15" y="74" width="50" height="3" fill="#a9737b"/><rect x="15" y="86" width="50" height="5" fill="#fffaf9"/><rect x="15" y="96" width="50" height="3" fill="#a9737b"/></g>'
+    +'<ellipse cx="22" cy="60" rx="4.5" ry="9" fill="#b98189"/><ellipse cx="58" cy="60" rx="4.5" ry="9" fill="#b98189"/>'
+    +'<circle cx="40" cy="34" r="19" fill="#f3d9cf"/>'
+    +'<path d="M21 33 Q21 13 40 13 Q59 13 59 33 Q52 24 40 24 Q28 24 21 33Z" fill="#6b4a4f"/>'
+    +'<g transform="translate(54 17)" fill="#fffaf9"><circle cx="0" cy="-3" r="2.3"/><circle cx="2.9" cy="-.9" r="2.3"/><circle cx="1.8" cy="2.4" r="2.3"/><circle cx="-1.8" cy="2.4" r="2.3"/><circle cx="-2.9" cy="-.9" r="2.3"/><circle r="1.5" fill="#a9737b"/></g>'
+    +'<circle cx="31.5" cy="40.5" r="3.2" fill="#e9a9ac" opacity=".6"/><circle cx="48.5" cy="40.5" r="3.2" fill="#e9a9ac" opacity=".6"/>'
+    +'<g class="eo" fill="#4a3236"><circle cx="33" cy="35" r="1.8"/><circle cx="47" cy="35" r="1.8"/></g>'
+    +'<g class="ec" fill="none" stroke="#4a3236" stroke-width="1.6" stroke-linecap="round"><path d="M30.5 35 Q33 37.8 35.5 35"/><path d="M44.5 35 Q47 37.8 49.5 35"/></g>'
+    +'<path d="M36 43.5 Q40 46.8 44 43.5" fill="none" stroke="#a9737b" stroke-width="1.5" stroke-linecap="round"/>'
+    +'</svg>';
+  }
+  $('doll').innerHTML=dollSVG('a');$('doll2').innerHTML=dollSVG('b');
+  var ADD=['I’m listening.','I’ve got that one. You can put it down.','Held. One less thing to carry tonight.','Written down, and heard.','Thank you for telling me.'];
+  var ai=0,sayT=null;
+  function say(msg){
+    var el=$('say'),dl=$('doll');
+    el.style.opacity=0;
+    setTimeout(function(){el.textContent=msg;el.style.opacity=1;},200);
+    dl.classList.remove('nod');void dl.offsetWidth;dl.classList.add('nod');
+    clearTimeout(sayT);sayT=setTimeout(function(){dl.classList.remove('nod');},1000);
+  }
   var TOTAL=600,left=TOTAL,iv=null;
   function show(){
     var mins=Math.ceil(left/60);
